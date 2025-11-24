@@ -9,6 +9,7 @@
  */
 
 import type * as crons from "../crons.js";
+import type * as notifications from "../notifications.js";
 import type * as portfolio from "../portfolio.js";
 import type * as prices from "../prices.js";
 import type * as pricesNode from "../pricesNode.js";
@@ -21,6 +22,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   crons: typeof crons;
+  notifications: typeof notifications;
   portfolio: typeof portfolio;
   prices: typeof prices;
   pricesNode: typeof pricesNode;

@@ -1,7 +1,16 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Moon, PlusCircle, Settings, Sun } from 'lucide-react'
+import { Bell, LayoutDashboard, Loader2, Moon, PlusCircle, Settings, Sun } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import {
   Sidebar,
@@ -20,7 +29,44 @@ import {
 } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/providers/theme-provider'
-import type { FC } from 'react'
+import { type FC, useMemo, useState } from 'react'
+import { useMutation, useQuery } from 'convex/react'
+
+import { api } from '../../convex/_generated/api'
+
+type NotificationSeverity = 'info' | 'success' | 'warning' | 'critical'
+
+const severityTokens: Record<
+  NotificationSeverity,
+  { label: string; badgeClassName: string }
+> = {
+  info: {
+    label: 'Info',
+    badgeClassName: 'bg-slate-100 text-slate-900 dark:bg-slate-900/60 dark:text-slate-100',
+  },
+  success: {
+    label: 'Haussier',
+    badgeClassName:
+      'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-100',
+  },
+  warning: {
+    label: 'Alerte',
+    badgeClassName:
+      'bg-amber-100 text-amber-900 dark:bg-amber-400/20 dark:text-amber-100',
+  },
+  critical: {
+    label: 'Critique',
+    badgeClassName:
+      'bg-rose-100 text-rose-900 dark:bg-rose-500/20 dark:text-rose-100',
+  },
+}
+
+const notificationDateFormatter = new Intl.DateTimeFormat('fr-FR', {
+  day: '2-digit',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+})
 
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/', exact: true },
@@ -30,6 +76,34 @@ const NAV_ITEMS = [
 export const MainLayout: FC = () => {
   const location = useLocation()
   const { theme, setTheme } = useTheme()
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
+
+  const notifications = useQuery(api.notifications.list, { limit: 25 })
+  const markAllRead = useMutation(api.notifications.markAllRead)
+
+  const notificationCount = notifications?.length ?? 0
+  const unreadCount = useMemo(
+    () => (notifications ? notifications.filter((notification) => !notification.isRead).length : 0),
+    [notifications],
+  )
+  const notificationsLabel = useMemo(() => {
+    if (notifications === undefined) return 'Chargement des alertes...'
+    if (notificationCount === 0) return 'Aucune alerte active'
+    return `${notificationCount} notification${notificationCount > 1 ? 's' : ''} disponibles`
+  }, [notificationCount, notifications])
+
+  const handleNotificationsModal = (open: boolean) => {
+    setIsNotificationsOpen(open)
+
+    if (open) {
+      markAllRead().catch((error) => {
+        console.error('Impossible de marquer les notifications comme lues', error)
+      })
+    }
+  }
+
+  const getSeverityToken = (severity?: NotificationSeverity | null) =>
+    severity ? severityTokens[severity] : severityTokens.info
 
   return (
     <SidebarProvider defaultOpen>
@@ -67,12 +141,29 @@ export const MainLayout: FC = () => {
             </SidebarGroup>
           </SidebarContent>
           <SidebarFooter className="px-4 py-6">
-            <div className="flex flex-col gap-2 rounded-lg border border-dashed p-3 text-sm">
-              <p className="font-medium">Version beta</p>
-              <Button size="sm" variant="secondary">
-                Rejoindre Discord
-              </Button>
-            </div>
+            <button
+              type="button"
+              onClick={() => handleNotificationsModal(true)}
+              className="group flex w-full items-center justify-between rounded-2xl border border-dashed border-primary/20 bg-background/80 px-4 py-3 text-left transition hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <div className="space-y-1">
+                <p className="text-sm font-semibold">Alertes marché</p>
+                <p className="text-xs text-muted-foreground">{notificationsLabel}</p>
+              </div>
+              <div className="relative inline-flex items-center justify-center rounded-full bg-primary/10 p-3 text-primary transition group-hover:bg-primary/20">
+                <Bell className="size-5" />
+                <Badge
+                  variant="secondary"
+                  className="absolute -right-1.5 -top-1.5 border border-background bg-primary px-1.5 py-0 text-[10px] font-bold leading-4 text-white"
+                >
+                  {notifications === undefined ? (
+                    <Loader2 className="size-3 animate-spin" />
+                  ) : (
+                    unreadCount || notificationCount
+                  )}
+                </Badge>
+              </div>
+            </button>
           </SidebarFooter>
           <SidebarRail />
         </Sidebar>
@@ -112,6 +203,65 @@ export const MainLayout: FC = () => {
           </div>
         </SidebarInset>
       </div>
+
+      <Dialog open={isNotificationsOpen} onOpenChange={handleNotificationsModal}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader className="text-left">
+            <DialogTitle>Centre de notifications</DialogTitle>
+            <DialogDescription>Les signaux générés par vos alertes de marché.</DialogDescription>
+          </DialogHeader>
+
+          {notifications === undefined ? (
+            <div className="flex flex-col items-center gap-3 py-10 text-sm text-muted-foreground">
+              <Loader2 className="size-5 animate-spin text-primary" />
+              Chargement des notifications...
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="rounded-xl border border-dashed bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground">
+              Encore aucune alerte. Ajoutez des actifs ou définissez des seuils pour recevoir des
+              signaux.
+            </div>
+          ) : (
+            <ScrollArea className="max-h-[360px] pr-4">
+              <div className="flex flex-col gap-3">
+                {notifications.map((notification) => {
+                  const severityToken = getSeverityToken(
+                    (notification.severity as NotificationSeverity | undefined) ?? 'info',
+                  )
+
+                  return (
+                    <div
+                      key={notification._id}
+                      className="rounded-xl border bg-muted/40 p-3 text-sm shadow-sm transition hover:border-primary/30"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold">{notification.title}</p>
+                        <Badge variant="outline" className={severityToken.badgeClassName}>
+                          {severityToken.label}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-muted-foreground">{notification.message}</p>
+                      <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                        <span className="font-medium">
+                          {notification.assetSymbol ?? 'Marché global'}
+                          {notification.priceTarget
+                            ? ` • Cible ${notification.priceTarget.toLocaleString('fr-FR', {
+                                style: 'currency',
+                                currency: 'EUR',
+                                maximumFractionDigits: 0,
+                              })}`
+                            : null}
+                        </span>
+                        <span>{notificationDateFormatter.format(notification.createdAt)}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   )
 }
