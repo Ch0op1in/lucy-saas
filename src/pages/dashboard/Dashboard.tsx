@@ -1,9 +1,7 @@
-import type { FC } from 'react'
+import { type FC, useEffect, useRef, useState } from 'react'
+import { ArrowUpRight, Coins, TrendingUp, Wallet } from 'lucide-react'
+import { useQuery } from 'convex/react'
 
-import { Bolt, PlayCircle, RefreshCw, Zap } from 'lucide-react'
-
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -12,7 +10,6 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Separator } from '@/components/ui/separator'
 import {
   Table,
   TableBody,
@@ -21,168 +18,223 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { api } from '../../../convex/_generated/api'
 
-const automationStats = [
-  { label: 'Scénarios actifs', value: '18', trend: '+3 cette semaine' },
-  { label: 'Tâches traitées', value: '42k', trend: '+12 % vs hier' },
-  { label: 'Taux de succès', value: '97.5%', trend: 'Stable' },
-  { label: 'Temps économisé', value: '128 h', trend: '+18 h ce mois' },
-]
+const euroFormatter = new Intl.NumberFormat('fr-FR', {
+  style: 'currency',
+  currency: 'EUR',
+  maximumFractionDigits: 2,
+})
 
-const recentRuns = [
-  { name: 'Onboarding clients', status: 'Succès', time: '09:24', latency: '1.2 s' },
-  { name: 'Sync CRM → HubSpot', status: 'Succès', time: '08:57', latency: '2.4 s' },
-  { name: 'Alertes ventes', status: 'Avertissement', time: '08:15', latency: '3.1 s' },
-  { name: 'Enrichissement leads', status: 'Succès', time: 'Hier', latency: '1.7 s' },
-]
+const percentFormatter = new Intl.NumberFormat('fr-FR', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
 
-const quickActions = [
-  {
-    label: 'Nouveau flow',
-    description: 'Assembler une automatisation depuis un template',
-    icon: Bolt,
-  },
-  {
-    label: 'Exécuter un test',
-    description: 'Vérifier un scénario avec des données fictives',
-    icon: PlayCircle,
-  },
-  {
-    label: 'Mettre à jour',
-    description: 'Relancer les synchronisations à la demande',
-    icon: RefreshCw,
-  },
-]
+const LoadingChip = () => (
+  <span className="inline-block h-6 w-24 animate-pulse rounded bg-muted/50" />
+)
 
-const Dashboard: FC = () => (
-  <div className="space-y-8">
-    <section className="grid gap-6 md:grid-cols-2">
-      <Card className="border-dashed">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-2xl">
-            <Zap className="size-5 text-primary" />
-            Bonjour Hugo 👋
-          </CardTitle>
-          <CardDescription>
-            4 automatisations attendent une revue. Prenez 2 minutes pour valider
-            les modifications proposées.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
-          <Button size="lg">Créer un flow</Button>
-          <Button size="lg" variant="outline">
-            Voir les derniers runs
-          </Button>
-        </CardContent>
-      </Card>
+const Dashboard: FC = () => {
+  const overview = useQuery(api.portfolio.overview)
+  const isLoading = overview === undefined
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle>Capacité du cluster</CardTitle>
-          <CardDescription>
-            L’état des workers reste optimal pour la journée.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between text-sm">
-            <span>Utilisation</span>
-            <span className="font-medium text-muted-foreground">72 %</span>
-          </div>
-          <Progress value={72} className="h-2" />
-          <div className="flex justify-between text-sm text-muted-foreground">
-            <span>9 workers actifs</span>
-            <span>3 en standby</span>
-          </div>
-        </CardContent>
-      </Card>
-    </section>
+  const summary = overview?.summary ?? {
+    totalInvested: 0,
+    currentValue: 0,
+    gain: 0,
+    perfPct: 0,
+    distinctAssets: 0,
+  }
 
-    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {automationStats.map((stat) => (
-        <Card key={stat.label}>
-          <CardHeader className="pb-2">
-            <CardDescription>{stat.label}</CardDescription>
-            <CardTitle className="text-3xl">{stat.value}</CardTitle>
+  const [valueTrend, setValueTrend] = useState<'up' | 'down' | null>(null)
+  const previousValueRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (isLoading) return
+    const previous = previousValueRef.current
+    const next = summary.currentValue
+
+    if (previous !== null && next !== previous) {
+      setValueTrend(next > previous ? 'up' : 'down')
+      const timeout = setTimeout(() => setValueTrend(null), 500)
+      previousValueRef.current = next
+      return () => clearTimeout(timeout)
+    }
+
+    previousValueRef.current = next
+  }, [isLoading, summary.currentValue])
+
+  const lastUpdateLabel = overview?.lastPriceUpdate
+    ? new Date(overview.lastPriceUpdate).toLocaleString('fr-FR', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : "En attente d'un premier rafraîchissement de prix"
+
+  const formatCurrency = (value: number) => euroFormatter.format(value)
+  const formatPercent = (value: number) => {
+    const formatted = percentFormatter.format(value)
+    return `${value >= 0 ? '+' : ''}${formatted} %`
+  }
+
+  return (
+    <div className="space-y-8">
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardDescription>Total investi</CardDescription>
+            <Wallet className="size-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">{stat.trend}</p>
+            <CardTitle className="text-3xl">
+              {isLoading ? <LoadingChip /> : formatCurrency(summary.totalInvested)}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Valeur actuelle{' '}
+              <span
+                className={`font-semibold transition-colors duration-1000 ${
+                  valueTrend === 'up'
+                    ? 'text-emerald-400/80'
+                    : valueTrend === 'down'
+                      ? 'text-red-400/80'
+                      : 'text-foreground'
+                }`}
+              >
+                {isLoading ? '...' : formatCurrency(summary.currentValue)}
+              </span>
+            </p>
           </CardContent>
         </Card>
-      ))}
-    </section>
 
-    <section className="grid gap-6 lg:grid-cols-3">
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle>Derniers runs</CardTitle>
-          <CardDescription>
-            Les flux critiques des dernières 24 heures.
-          </CardDescription>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardDescription>Cryptos suivies</CardDescription>
+            <Coins className="size-5 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <CardTitle className="text-3xl">
+              {isLoading ? <LoadingChip /> : summary.distinctAssets}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Total de jetons différents présents dans le portefeuille
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardDescription>Performance globale</CardDescription>
+            <TrendingUp className="size-5 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-baseline gap-2">
+              <CardTitle className="text-3xl">
+                {isLoading ? <LoadingChip /> : formatPercent(summary.perfPct)}
+              </CardTitle>
+              {!isLoading && (
+                <span
+                  className={`inline-flex items-center gap-1 text-sm font-semibold ${
+                    summary.gain >= 0 ? 'text-emerald-600' : 'text-destructive'
+                  }`}
+                >
+                  <ArrowUpRight className="size-4" />
+                  {formatCurrency(summary.gain)}
+                </span>
+              )}
+            </div>
+            {!overview?.hasManualInvestedValue && (
+              <p className="text-xs text-muted-foreground">
+                En attente des montants investis pour calculer la perf exacte
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="flex items-start justify-between gap-4">
+          <div>
+            <CardTitle>Répartition du portefeuille</CardTitle>
+            <CardDescription>
+              Conversion en EUR basée sur les derniers prix Binance
+            </CardDescription>
+          </div>
+          <div className="text-right text-xs text-muted-foreground">
+            Dernière mise à jour
+            <br />
+            <span className="font-medium">{lastUpdateLabel}</span>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Horodatage</TableHead>
-                <TableHead>Latence</TableHead>
+                <TableHead className="w-[140px]">Actif</TableHead>
+                <TableHead className="w-[140px] text-right">Quantité</TableHead>
+                <TableHead className="w-[140px] text-right">Prix actuel</TableHead>
+                <TableHead className="w-[160px] text-right">Valeur</TableHead>
+                <TableHead className="w-[200px] text-right">Allocation</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recentRuns.map((run) => (
-                <TableRow key={run.name}>
-                  <TableCell className="font-medium">{run.name}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        run.status === 'Succès'
-                          ? 'default'
-                          : run.status === 'Avertissement'
-                            ? 'secondary'
-                            : 'outline'
-                      }
-                    >
-                      {run.status}
-                    </Badge>
+              {isLoading && (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    <div className="flex h-24 items-center justify-center text-muted-foreground">
+                      Synchronisation du portefeuille...
+                    </div>
                   </TableCell>
-                  <TableCell>{run.time}</TableCell>
-                  <TableCell>{run.latency}</TableCell>
                 </TableRow>
-              ))}
+              )}
+              {!isLoading && overview?.holdings.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    <div className="flex h-24 items-center justify-center text-muted-foreground">
+                      Ajoutez vos premiers achats pour voir la répartition.
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isLoading &&
+                overview?.holdings.map((holding) => (
+                  <TableRow key={holding.symbol}>
+                    <TableCell className="font-semibold">
+                      {holding.symbol}
+                      <p className="text-xs font-normal text-muted-foreground">
+                        {holding.coinId}
+                      </p>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {holding.amount.toLocaleString('fr-FR', {
+                        maximumFractionDigits: 6,
+                      })}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatCurrency(holding.currentPrice)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatCurrency(holding.currentValue)}
+                    </TableCell>
+                    <TableCell className="tabular-nums">
+                      <div className="flex flex-col gap-1 text-right">
+                        <div className="flex items-center justify-between text-xs font-medium">
+                          <span>{holding.allocation.toFixed(2)}%</span>
+                          <span>{formatCurrency(holding.currentValue)}</span>
+                        </div>
+                        <Progress value={holding.allocation} className="h-1.5" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Actions rapides</CardTitle>
-          <CardDescription>
-            Accédez aux tâches fréquentes sans quitter le dashboard.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {quickActions.map((action) => (
-            <div
-              key={action.label}
-              className="rounded-lg border bg-card/40 p-4 hover:bg-card transition"
-            >
-              <div className="flex items-center gap-3">
-                <action.icon className="size-4 text-primary" />
-                <p className="font-medium">{action.label}</p>
-              </div>
-              <p className="text-sm text-muted-foreground">{action.description}</p>
-            </div>
-          ))}
-          <Separator />
-          <Button variant="secondary" className="w-full">
-            Voir tous les templates
-          </Button>
-        </CardContent>
-      </Card>
-    </section>
-  </div>
-)
+    </div>
+  )
+}
 
 export default Dashboard

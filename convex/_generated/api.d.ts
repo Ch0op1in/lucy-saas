@@ -8,13 +8,23 @@
  * @module
  */
 
+import type * as crons from "../crons.js";
+import type * as portfolio from "../portfolio.js";
+import type * as prices from "../prices.js";
+import type * as pricesNode from "../pricesNode.js";
+
 import type {
   ApiFromModules,
   FilterApi,
   FunctionReference,
 } from "convex/server";
 
-declare const fullApi: ApiFromModules<{}>;
+declare const fullApi: ApiFromModules<{
+  crons: typeof crons;
+  portfolio: typeof portfolio;
+  prices: typeof prices;
+  pricesNode: typeof pricesNode;
+}>;
 
 /**
  * A utility for referencing Convex functions in your app's public API.

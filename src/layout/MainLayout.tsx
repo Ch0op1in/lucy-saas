@@ -1,7 +1,8 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { LayoutDashboard, PlusCircle, Settings } from 'lucide-react'
+import { LayoutDashboard, Moon, PlusCircle, Settings, Sun } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import {
   Sidebar,
   SidebarContent,
@@ -17,6 +18,8 @@ import {
   SidebarRail,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
+import { cn } from '@/lib/utils'
+import { useTheme } from '@/providers/theme-provider'
 import type { FC } from 'react'
 
 const NAV_ITEMS = [
@@ -26,6 +29,7 @@ const NAV_ITEMS = [
 
 export const MainLayout: FC = () => {
   const location = useLocation()
+  const { theme, setTheme } = useTheme()
 
   return (
     <SidebarProvider defaultOpen>
@@ -77,7 +81,26 @@ export const MainLayout: FC = () => {
           <header className="flex items-center gap-2 border-b bg-background px-6 py-4">
             <SidebarTrigger />
             <h2 className="text-lg font-semibold">Lucy AI</h2>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-4">
+              <div className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground">
+                <Sun
+                  className={cn(
+                    'size-4 transition-colors',
+                    theme === 'light' ? 'text-primary' : 'text-muted-foreground',
+                  )}
+                />
+                <Switch
+                  aria-label="Basculer en mode sombre"
+                  checked={theme === 'dark'}
+                  onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                />
+                <Moon
+                  className={cn(
+                    'size-4 transition-colors',
+                    theme === 'dark' ? 'text-primary' : 'text-muted-foreground',
+                  )}
+                />
+              </div>
               <Button variant="outline" size="sm" className="cursor-pointer bg-green-500 text-white hover:bg-green-600 hover:text-white">
                 <PlusCircle className="size-4" />
                 Ajouter un actif
