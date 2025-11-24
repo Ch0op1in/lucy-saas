@@ -162,6 +162,21 @@ pnpm dev
 
 L'app est accessible sur `http://localhost:5173`
 
+### Charger des données d'exemple
+
+Pour tester l'application avec des données de portefeuille, vous pouvez importer le fichier `sampleData.jsonl` :
+
+```bash
+npx convex import sampleData.jsonl --table portfolio
+```
+
+Ce fichier contient des positions d'exemple :
+- 0.5 BTC (investi 1000€)
+- 10 ETH (investi 2000€)
+- 50 SOL (investi 3000€)
+
+Ces données permettront de voir le dashboard avec des valeurs réelles et de tester les notifications IA personnalisées basées sur votre portefeuille.
+
 ## 📊 Comment ça marche
 
 ### Flux de mise à jour des prix
