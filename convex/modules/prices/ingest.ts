@@ -1,14 +1,11 @@
 import { v } from "convex/values"
 
 import { internal } from "../../_generated/api"
-import { internalMutation, type MutationCtx } from "../../_generated/server"
+import { internalMutation, mutation, type MutationCtx } from "../../_generated/server"
+import { SUPPORTED_ASSETS } from "../lib/constants"
 import { buildPortfolioInsights } from "../lib/portfolio"
 
-export const SUPPORTED_ASSETS = [
-  { coinId: "bitcoin", symbol: "BTC", market: "BTCEUR" },
-  { coinId: "ethereum", symbol: "ETH", market: "ETHEUR" },
-  { coinId: "solana", symbol: "SOL", market: "SOLEUR" },
-]
+export { SUPPORTED_ASSETS }
 
 const euroFormatter = new Intl.NumberFormat("fr-FR", {
   style: "currency",
@@ -50,6 +47,47 @@ const directionByOperator: Record<RuleOperator, string> = {
   below: "en dessous",
 }
 
+const updatePriceAndTriggerRules = async (
+  ctx: MutationCtx,
+  params: {
+    symbol: string
+    price: number
+    updatedAt: number
+  },
+) => {
+  console.log("[prices] updatePriceAndTriggerRules called", {
+    symbol: params.symbol,
+    price: params.price,
+  })
+
+  const existing = await ctx.db
+    .query("tokenPrices")
+    .withIndex("by_symbol", (q) => q.eq("symbol", params.symbol))
+    .unique()
+
+  const previousPrice = existing?.price ?? null
+
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      price: params.price,
+      updatedAt: params.updatedAt,
+    })
+  } else {
+    await ctx.db.insert("tokenPrices", {
+      symbol: params.symbol,
+      price: params.price,
+      updatedAt: params.updatedAt,
+    })
+  }
+
+  await triggerRulesForSymbol(ctx, {
+    symbol: params.symbol,
+    currentPrice: params.price,
+    previousPrice,
+    updatedAt: params.updatedAt,
+  })
+}
+
 export const upsertPrice = internalMutation({
   args: {
     symbol: v.string(),
@@ -57,31 +95,32 @@ export const upsertPrice = internalMutation({
     updatedAt: v.number(),
   },
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("tokenPrices")
-      .withIndex("by_symbol", (q) => q.eq("symbol", args.symbol))
-      .unique()
+    await updatePriceAndTriggerRules(ctx, {
+      symbol: args.symbol,
+      price: args.price,
+      updatedAt: args.updatedAt,
+    })
+  },
+})
 
-    const previousPrice = existing?.price ?? null
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        price: args.price,
-        updatedAt: args.updatedAt,
-      })
-    } else {
-      await ctx.db.insert("tokenPrices", {
-        symbol: args.symbol,
-        price: args.price,
-        updatedAt: args.updatedAt,
-      })
+export const updatePrice = mutation({
+  args: {
+    symbol: v.string(),
+    price: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const symbol = args.symbol.trim().toUpperCase()
+    if (!SUPPORTED_ASSETS.some((asset) => asset.symbol === symbol)) {
+      throw new Error("Actif non supporté")
+    }
+    if (!Number.isFinite(args.price) || args.price <= 0) {
+      throw new Error("Le prix doit être un montant positif.")
     }
 
-    await triggerRulesForSymbol(ctx, {
-      symbol: args.symbol,
-      currentPrice: args.price,
-      previousPrice,
-      updatedAt: args.updatedAt,
+    await updatePriceAndTriggerRules(ctx, {
+      symbol,
+      price: args.price,
+      updatedAt: Date.now(),
     })
   },
 })
@@ -95,23 +134,49 @@ const triggerRulesForSymbol = async (
     updatedAt: number
   },
 ) => {
+  console.log("[prices] Checking rules for symbol", {
+    symbol: params.symbol,
+    currentPrice: params.currentPrice,
+    previousPrice: params.previousPrice,
+  })
+
   const rules = await ctx.db
     .query("alertRules")
     .withIndex("by_assetSymbol", (q) => q.eq("assetSymbol", params.symbol))
     .collect()
 
+  console.log("[prices] Found rules", { symbol: params.symbol, count: rules.length })
+
   if (rules.length === 0) {
     return
   }
 
-  const triggeredRules = rules.filter((rule) =>
-    shouldTriggerRule(
+  const triggeredRules = rules.filter((rule) => {
+    const shouldTrigger = shouldTriggerRule(
       rule.operator as RuleOperator,
       rule.priceTarget,
       params.previousPrice,
       params.currentPrice,
-    ),
-  )
+    )
+    
+    console.log("[prices] Rule check", {
+      symbol: params.symbol,
+      ruleId: rule._id,
+      operator: rule.operator,
+      target: rule.priceTarget,
+      previousPrice: params.previousPrice,
+      currentPrice: params.currentPrice,
+      shouldTrigger,
+    })
+    
+    return shouldTrigger
+  })
+
+  console.log("[prices] Triggered rules", {
+    symbol: params.symbol,
+    total: rules.length,
+    triggered: triggeredRules.length,
+  })
 
   if (triggeredRules.length === 0) {
     return

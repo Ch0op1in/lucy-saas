@@ -21,13 +21,19 @@ async function fetchAveragePrice(symbol: string) {
 export const refreshFromBinance = internalAction({
   args: {},
   handler: async (ctx) => {
+    console.log("[cron] refreshFromBinance started");
     const updatedAt = Date.now();
 
     for (const asset of SUPPORTED_ASSETS) {
       try {
         const numericPrice = await fetchAveragePrice(asset.market);
 
-        if (Number.isNaN(numericPrice)) continue;
+        if (Number.isNaN(numericPrice)) {
+          console.warn(`[cron] Invalid price for ${asset.market}`);
+          continue;
+        }
+
+        console.log(`[cron] Fetched price for ${asset.symbol}: ${numericPrice}`);
 
         await ctx.runMutation(internal.prices.upsertPrice, {
           symbol: asset.symbol,
@@ -36,11 +42,13 @@ export const refreshFromBinance = internalAction({
         });
       } catch (error) {
         console.error(
-          `Impossible de récupérer ${asset.market} depuis Binance`,
+          `[cron] Impossible de récupérer ${asset.market} depuis Binance`,
           error,
         );
       }
     }
+    
+    console.log("[cron] refreshFromBinance completed");
   },
 });
 

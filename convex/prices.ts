@@ -1,2 +1,2 @@
-export { SUPPORTED_ASSETS, upsertPrice } from "./modules/prices/ingest";
+export { SUPPORTED_ASSETS, upsertPrice, updatePrice } from "./modules/prices/ingest";
 

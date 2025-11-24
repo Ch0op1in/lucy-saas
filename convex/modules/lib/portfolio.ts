@@ -1,6 +1,6 @@
 import type { Id } from "../../_generated/dataModel"
 import type { MutationCtx } from "../../_generated/server"
-import { SUPPORTED_ASSETS } from "../prices/ingest"
+import { SUPPORTED_ASSETS } from "./constants"
 
 const symbolByCoinId = SUPPORTED_ASSETS.reduce<Record<string, string>>((acc, asset) => {
   acc[asset.coinId] = asset.symbol

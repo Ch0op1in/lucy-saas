@@ -1,7 +1,7 @@
 import { mutation } from "../../_generated/server"
 import { v } from "convex/values"
 
-import { SUPPORTED_ASSETS } from "../prices/ingest"
+import { SUPPORTED_ASSETS } from "../lib/constants"
 
 const SUPPORTED_SYMBOLS = new Set(SUPPORTED_ASSETS.map((asset) => asset.symbol.toUpperCase()))
 
