@@ -5,31 +5,10 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import { resolveOpenAiKey, type EnvCtx } from "./modules/lib/env";
 
 const buildMessage = (args: { aiSection: string }) => {
   return args.aiSection;
-};
-
-type EnvEnabledCtx = {
-  env?: {
-    get(name: string): string | undefined;
-  };
-};
-
-const resolveOpenAiKey = (ctx: EnvEnabledCtx) => {
-  const fromDeployment = ctx.env?.get?.("OPENAI_API_KEY");
-  if (fromDeployment) {
-    return fromDeployment;
-  }
-
-  const fromProcess =
-    (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.OPENAI_API_KEY;
-  if (fromProcess) {
-    console.warn("[NOTIFICATIONS] OPENAI_API_KEY lu depuis process.env (dev local).");
-    return fromProcess;
-  }
-
-  return null;
 };
 
 export const generateNotification = internalAction({
@@ -57,7 +36,7 @@ export const generateNotification = internalAction({
     console.log("Title:", args.title);
     console.log("Severity:", args.severity);
     
-    const apiKey = resolveOpenAiKey(ctx as EnvEnabledCtx);
+    const apiKey = resolveOpenAiKey(ctx as EnvCtx);
     console.log("API Key présente?", apiKey ? `OUI (${apiKey.substring(0, 10)}...)` : "NON - ERREUR!");
     
     let aiSection: string | null = null;

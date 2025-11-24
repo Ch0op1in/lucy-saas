@@ -10,6 +10,8 @@
 
 import type * as ai from "../ai.js";
 import type * as crons from "../crons.js";
+import type * as modules_lib_env from "../modules/lib/env.js";
+import type * as modules_lib_logger from "../modules/lib/logger.js";
 import type * as notifications from "../notifications.js";
 import type * as portfolio from "../portfolio.js";
 import type * as prices from "../prices.js";
@@ -25,6 +27,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   crons: typeof crons;
+  "modules/lib/env": typeof modules_lib_env;
+  "modules/lib/logger": typeof modules_lib_logger;
   notifications: typeof notifications;
   portfolio: typeof portfolio;
   prices: typeof prices;
