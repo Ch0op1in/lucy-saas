@@ -8,11 +8,13 @@
  * @module
  */
 
+import type * as ai from "../ai.js";
 import type * as crons from "../crons.js";
 import type * as notifications from "../notifications.js";
 import type * as portfolio from "../portfolio.js";
 import type * as prices from "../prices.js";
 import type * as pricesNode from "../pricesNode.js";
+import type * as rules from "../rules.js";
 
 import type {
   ApiFromModules,
@@ -21,11 +23,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  ai: typeof ai;
   crons: typeof crons;
   notifications: typeof notifications;
   portfolio: typeof portfolio;
   prices: typeof prices;
   pricesNode: typeof pricesNode;
+  rules: typeof rules;
 }>;
 
 /**

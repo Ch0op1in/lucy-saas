@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 const MAX_NOTIFICATIONS = 100;
@@ -67,6 +67,33 @@ export const create = mutation({
       priceTarget: args.priceTarget,
       isRead: false,
       createdAt: Date.now(),
+    });
+  },
+});
+
+export const insertGenerated = internalMutation({
+  args: {
+    title: v.string(),
+    message: v.string(),
+    severity: v.union(
+      v.literal("info"),
+      v.literal("success"),
+      v.literal("warning"),
+      v.literal("critical"),
+    ),
+    assetSymbol: v.string(),
+    priceTarget: v.number(),
+    createdAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("notifications", {
+      title: args.title,
+      message: args.message,
+      severity: args.severity,
+      assetSymbol: args.assetSymbol,
+      priceTarget: args.priceTarget,
+      isRead: false,
+      createdAt: args.createdAt,
     });
   },
 });

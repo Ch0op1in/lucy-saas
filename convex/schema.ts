@@ -24,5 +24,13 @@ export default defineSchema({
     isRead: v.boolean(),
     createdAt: v.number(),
   }).index("by_createdAt", ["createdAt"]),
+  alertRules: defineTable({
+    assetSymbol: v.string(),
+    operator: v.union(v.literal("above"), v.literal("below")),
+    priceTarget: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_createdAt", ["createdAt"])
+    .index("by_assetSymbol", ["assetSymbol"]),
 });
 

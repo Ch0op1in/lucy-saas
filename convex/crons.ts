@@ -5,7 +5,7 @@ const crons = cronJobs();
 
 crons.interval(
   "refreshBinanceTokenPrices",
-  { seconds: 2 },
+  { seconds: 10 },
   internal.pricesNode.refreshFromBinance,
 );
 

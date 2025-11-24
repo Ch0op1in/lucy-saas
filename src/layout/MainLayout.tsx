@@ -1,5 +1,14 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { Bell, LayoutDashboard, Loader2, Moon, PlusCircle, Settings, Sun } from 'lucide-react'
+import {
+  Bell,
+  LayoutDashboard,
+  ListChecks,
+  Loader2,
+  Moon,
+  PlusCircle,
+  Settings,
+  Sun,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -70,6 +79,7 @@ const notificationDateFormatter = new Intl.DateTimeFormat('fr-FR', {
 
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/', exact: true },
+  { label: 'Règles', icon: ListChecks, href: '/rules' },
   { label: 'Paramètres', icon: Settings, href: '/settings' },
 ]
 
